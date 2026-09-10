@@ -17,69 +17,41 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.ItemAttributeModifierEvent;
 import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.Locale;
 import java.util.Map;
 
-@EventBusSubscriber(modid = EquipmentEditorMod.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = EquipmentEditorMod.MOD_ID)
 public final class EquipmentModifier {
     private static final String NAMESPACE = EquipmentEditorMod.MOD_ID;
+    private static final String VANILLA_NAMESPACE = "minecraft";
 
     private EquipmentModifier() {}
 
     @SubscribeEvent
     public static void modifyDefaultComponents(ModifyDefaultComponentsEvent event) {
-        for (EquipmentConfig.Rule rule : EquipmentConfig.RULES) {
-            if (rule.durability == null && rule.unbreakable == null) continue;
-            applyComponents(rule, event);
-        }
-    }
+        event.getAllItems().forEach(item -> {
+            EquipmentConfig.Rule rule = resolveRule(new ItemStack(item));
+            if (rule == null || (rule.durability == null && rule.unbreakable == null)) return;
 
-    private static void applyComponents(
-        EquipmentConfig.Rule rule,
-        ModifyDefaultComponentsEvent event
-    ) {
-        if (rule.item != null && !rule.item.isBlank()) {
-            ResourceLocation id = ResourceLocation.tryParse(rule.item);
-            if (id == null) return;
-
-            Item item = BuiltInRegistries.ITEM.getOptional(id).orElse(null);
-            if (item != null) modifyItemComponents(item, rule, event);
-            return;
-        }
-
-        if (rule.tag != null && !rule.tag.isBlank()) {
-            TagKey<Item> tag = itemTag(rule.tag);
-            if (tag == null) return;
-
-            BuiltInRegistries.ITEM.getOrCreateTag(tag).forEach(holder ->
-                modifyItemComponents(holder.value(), rule, event));
-        }
-    }
-
-    private static void modifyItemComponents(
-        Item item,
-        EquipmentConfig.Rule rule,
-        ModifyDefaultComponentsEvent event
-    ) {
-        event.modify(item, builder -> {
-            if (rule.durability != null) {
-                builder.set(DataComponents.MAX_DAMAGE, Math.max(1, rule.durability));
-            }
-
-            if (rule.unbreakable != null) {
-                builder.set(
-                    DataComponents.UNBREAKABLE,
-                    rule.unbreakable ? new Unbreakable(true) : null
-                );
-            }
+            event.modify(item, builder -> {
+                if (rule.durability != null) {
+                    builder.set(DataComponents.MAX_DAMAGE, Math.max(1, rule.durability));
+                }
+                if (rule.unbreakable != null) {
+                    builder.set(
+                        DataComponents.UNBREAKABLE,
+                        rule.unbreakable ? new Unbreakable(true) : null
+                    );
+                }
+            });
         });
     }
 
     @SubscribeEvent
     public static void modifyAttributes(ItemAttributeModifierEvent event) {
-        ItemStack stack = event.getItemStack();
-        EquipmentConfig.Rule rule = findRule(stack);
+        EquipmentConfig.Rule rule = resolveRule(event.getItemStack());
         if (rule == null) return;
 
         if (rule.attackDamage != null)
@@ -117,55 +89,100 @@ public final class EquipmentModifier {
             replace(event, Attributes.ATTACK_KNOCKBACK, "attack_knockback",
                 rule.attackKnockback, EquipmentSlotGroup.MAINHAND);
 
-        if (rule.attributes == null) return;
+        if (rule.attributes != null) {
+            for (Map.Entry<String, Double> entry : rule.attributes.entrySet()) {
+                ResourceLocation id = ResourceLocation.tryParse(entry.getKey());
+                if (id == null) continue;
 
-        for (Map.Entry<String, Double> entry : rule.attributes.entrySet()) {
-            ResourceLocation id = ResourceLocation.tryParse(entry.getKey());
-            if (id == null) continue;
-
-            Holder.Reference<Attribute> attribute =
-                BuiltInRegistries.ATTRIBUTE.getHolder(id).orElse(null);
-
-            if (attribute != null) {
-                replace(event, attribute,
-                    "attribute_" + entry.getKey(),
-                    entry.getValue(),
-                    EquipmentSlotGroup.ANY);
+                Holder.Reference<Attribute> attribute =
+                    BuiltInRegistries.ATTRIBUTE.getHolder(id).orElse(null);
+                if (attribute != null) {
+                    replace(event, attribute,
+                        "attribute_" + entry.getKey(),
+                        entry.getValue(),
+                        EquipmentSlotGroup.ANY);
+                }
             }
+        }
+    }
+
+    @SubscribeEvent
+    public static void modifyMiningSpeed(PlayerEvent.BreakSpeed event) {
+        ItemStack stack = event.getEntity().getMainHandItem();
+        EquipmentConfig.Rule rule = resolveRule(stack);
+        if (rule == null) return;
+
+        if (rule.miningSpeed != null) {
+            event.setNewSpeed(Math.max(0.0f, rule.miningSpeed.floatValue()));
+        }
+        if (rule.miningSpeedMultiplier != null) {
+            event.setNewSpeed(Math.max(0.0f,
+                event.getNewSpeed() * Math.max(0.0f, rule.miningSpeedMultiplier.floatValue())));
         }
     }
 
     public static Double getMiningSpeedOverride(ItemStack stack) {
-        EquipmentConfig.Rule rule = findRule(stack);
+        EquipmentConfig.Rule rule = resolveRule(stack);
         return rule == null ? null : rule.miningSpeed;
     }
 
     public static Double getMiningSpeedMultiplier(ItemStack stack) {
-        EquipmentConfig.Rule rule = findRule(stack);
+        EquipmentConfig.Rule rule = resolveRule(stack);
         return rule == null ? null : rule.miningSpeedMultiplier;
     }
 
     public static int getEnchantability(ItemStack stack, int vanillaValue) {
-        EquipmentConfig.Rule rule = findRule(stack);
+        EquipmentConfig.Rule rule = resolveRule(stack);
         if (rule == null || rule.enchantability == null) return vanillaValue;
         return Math.max(0, rule.enchantability);
     }
 
-    private static EquipmentConfig.Rule findRule(ItemStack stack) {
+    /**
+     * Resolves all matching tag rules, then overlays the exact item rule last.
+     * This lets independent tags contribute different properties while keeping
+     * an exact item rule authoritative for any property it specifies.
+     */
+    private static EquipmentConfig.Rule resolveRule(ItemStack stack) {
         String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        EquipmentConfig.Rule resolved = null;
 
         for (EquipmentConfig.Rule candidate : EquipmentConfig.RULES) {
-            if (candidate.item != null && candidate.item.equals(itemId)) return candidate;
-        }
-
-        for (EquipmentConfig.Rule candidate : EquipmentConfig.RULES) {
-            if (candidate.tag != null && !candidate.tag.isBlank()) {
-                TagKey<Item> tag = itemTag(candidate.tag);
-                if (tag != null && stack.is(tag)) return candidate;
+            if (candidate.tag == null || candidate.tag.isBlank()) continue;
+            TagKey<Item> tag = itemTag(candidate.tag);
+            if (tag != null && stack.is(tag)) {
+                if (resolved == null) resolved = new EquipmentConfig.Rule();
+                merge(resolved, candidate);
             }
         }
 
-        return null;
+        for (EquipmentConfig.Rule candidate : EquipmentConfig.RULES) {
+            if (candidate.item != null && candidate.item.equals(itemId)) {
+                if (resolved == null) resolved = new EquipmentConfig.Rule();
+                merge(resolved, candidate);
+                break;
+            }
+        }
+
+        return resolved;
+    }
+
+    private static void merge(EquipmentConfig.Rule target, EquipmentConfig.Rule source) {
+        if (source.durability != null) target.durability = source.durability;
+        if (source.unbreakable != null) target.unbreakable = source.unbreakable;
+        if (source.attackDamage != null) target.attackDamage = source.attackDamage;
+        if (source.attackSpeed != null) target.attackSpeed = source.attackSpeed;
+        if (source.armor != null) target.armor = source.armor;
+        if (source.armorToughness != null) target.armorToughness = source.armorToughness;
+        if (source.knockbackResistance != null) target.knockbackResistance = source.knockbackResistance;
+        if (source.entityInteractionRange != null) target.entityInteractionRange = source.entityInteractionRange;
+        if (source.blockInteractionRange != null) target.blockInteractionRange = source.blockInteractionRange;
+        if (source.movementSpeed != null) target.movementSpeed = source.movementSpeed;
+        if (source.attackKnockback != null) target.attackKnockback = source.attackKnockback;
+        if (source.miningSpeed != null) target.miningSpeed = source.miningSpeed;
+        if (source.miningSpeedMultiplier != null) target.miningSpeedMultiplier = source.miningSpeedMultiplier;
+        if (source.enchantability != null) target.enchantability = source.enchantability;
+        if (source.durabilityMultiplier != null) target.durabilityMultiplier = source.durabilityMultiplier;
+        if (source.attributes != null) target.attributes.putAll(source.attributes);
     }
 
     private static TagKey<Item> itemTag(String tagId) {
@@ -180,15 +197,21 @@ public final class EquipmentModifier {
         double amount,
         EquipmentSlotGroup slot
     ) {
-        event.removeAllModifiersFor(attribute);
+        ResourceLocation id = ResourceLocation.fromNamespaceAndPath(NAMESPACE, sanitize(property));
 
-        AttributeModifier modifier = new AttributeModifier(
-            ResourceLocation.fromNamespaceAndPath(NAMESPACE, sanitize(property)),
-            amount,
-            AttributeModifier.Operation.ADD_VALUE
+        // Preserve modifiers supplied by other mods. Vanilla modifiers are the
+        // values an Equipment Editor property is intended to replace; our own
+        // modifier is replaced on subsequent evaluations.
+        event.removeIf(entry ->
+            entry.attribute().equals(attribute)
+                && (entry.modifier().id().getNamespace().equals(VANILLA_NAMESPACE)
+                    || entry.modifier().id().equals(id)));
+
+        event.addModifier(
+            attribute,
+            new AttributeModifier(id, amount, AttributeModifier.Operation.ADD_VALUE),
+            slot
         );
-
-        event.addModifier(attribute, modifier, slot);
     }
 
     private static String sanitize(String value) {
