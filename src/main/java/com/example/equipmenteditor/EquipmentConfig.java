@@ -93,7 +93,6 @@ public final class EquipmentConfig {
         public Double attackKnockback;
         public Double miningSpeed;
         public Double miningSpeedMultiplier;
-        public Integer enchantability;
         public Integer durabilityMultiplier;
         public Map<String, Double> attributes = new HashMap<>();
 
