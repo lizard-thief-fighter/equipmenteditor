@@ -19,7 +19,6 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.ItemAttributeModifierEvent;
 import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
-import net.neoforged.neoforge.event.enchanting.EnchantmentLevelSetEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.ArrayList;
@@ -74,25 +73,19 @@ public final class EquipmentModifier {
                 if (rule.durability != null || rule.durabilityMultiplier != null) {
                     int baseDamage = stack.getMaxDamage();
                     double durability = rule.durability != null ? rule.durability : baseDamage;
-                    if (rule.durabilityMultiplier != null) {
-                        durability *= rule.durabilityMultiplier;
-                    }
+                    if (rule.durabilityMultiplier != null) durability *= rule.durabilityMultiplier;
                     builder.set(DataComponents.MAX_DAMAGE, Math.max(1, (int) Math.round(durability)));
                 }
                 if (rule.unbreakable != null) {
-                    builder.set(
-                        DataComponents.UNBREAKABLE,
-                        rule.unbreakable ? new Unbreakable(true) : null
-                    );
+                    builder.set(DataComponents.UNBREAKABLE,
+                        rule.unbreakable ? new Unbreakable(true) : null);
                 }
                 if (rule.maxStackSize != null) {
                     builder.set(DataComponents.MAX_STACK_SIZE, Math.max(1, rule.maxStackSize));
                 }
                 if (rule.fireResistant != null) {
-                    builder.set(
-                        DataComponents.FIRE_RESISTANT,
-                        rule.fireResistant ? net.minecraft.util.Unit.INSTANCE : null
-                    );
+                    builder.set(DataComponents.FIRE_RESISTANT,
+                        rule.fireResistant ? net.minecraft.util.Unit.INSTANCE : null);
                 }
                 if (rule.rarity != null) {
                     Rarity rarity = parseRarity(rule.rarity);
@@ -167,18 +160,6 @@ public final class EquipmentModifier {
             event.getNewSpeed() * Math.max(0.0f, rule.miningSpeedMultiplier.floatValue())));
     }
 
-    public static void modifyEnchantability(EnchantmentLevelSetEvent event) {
-        EquipmentConfig.Rule rule = resolveRule(event.getItem());
-        if (rule == null || rule.enchantability == null) return;
-
-        int vanillaValue = event.getItem().getItem().getEnchantmentValue();
-        int configuredValue = Math.max(0, rule.enchantability);
-        if (vanillaValue <= 0) return;
-
-        int adjusted = Math.round(event.getEnchantLevel() * (configuredValue / (float) vanillaValue));
-        event.setEnchantLevel(Math.max(0, Math.min(30, adjusted)));
-    }
-
     private static EquipmentConfig.Rule resolveRule(ItemStack stack) {
         if (stack.isEmpty()) return null;
 
@@ -217,7 +198,6 @@ public final class EquipmentModifier {
         if (source.attackKnockback != null) target.attackKnockback = source.attackKnockback;
         if (source.miningSpeed != null) target.miningSpeed = source.miningSpeed;
         if (source.miningSpeedMultiplier != null) target.miningSpeedMultiplier = source.miningSpeedMultiplier;
-        if (source.enchantability != null) target.enchantability = source.enchantability;
         if (source.durabilityMultiplier != null) target.durabilityMultiplier = source.durabilityMultiplier;
         if (source.attributes != null) target.attributes.putAll(source.attributes);
     }
