@@ -87,6 +87,7 @@ public final class EquipmentConfig {
         public String tag;
 
         public Integer durability;
+        public Boolean unbreakable;
         public Double attackDamage;
         public Double attackSpeed;
         public Double armor;
