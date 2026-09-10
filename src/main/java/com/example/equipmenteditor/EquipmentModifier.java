@@ -170,22 +170,6 @@ public final class EquipmentModifier {
             event.getNewSpeed() * Math.max(0.0f, rule.miningSpeedMultiplier.floatValue())));
     }
 
-    public static Double getMiningSpeedOverride(ItemStack stack) {
-        EquipmentConfig.Rule rule = resolveRule(stack);
-        return rule == null ? null : rule.miningSpeed;
-    }
-
-    public static Double getMiningSpeedMultiplier(ItemStack stack) {
-        EquipmentConfig.Rule rule = resolveRule(stack);
-        return rule == null ? null : rule.miningSpeedMultiplier;
-    }
-
-    public static int getEnchantability(ItemStack stack, int vanillaValue) {
-        EquipmentConfig.Rule rule = resolveRule(stack);
-        if (rule == null || rule.enchantability == null) return vanillaValue;
-        return Math.max(0, rule.enchantability);
-    }
-
     private static EquipmentConfig.Rule resolveRule(ItemStack stack) {
         if (stack.isEmpty()) return null;
 
