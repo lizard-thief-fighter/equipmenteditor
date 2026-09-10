@@ -1,0 +1,25 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'net.neoforged.moddev' version '2.0.107'
+}
+group = mod_group_id
+version = mod_version
+base { archivesName = mod_id }
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = neo_version
+    runs {
+        client { client() }
+        server { server() }
+        gameTestServer { type = "gameTestServer" }
+        data { clientData() }
+    }
+    mods {
+        equipmenteditor { sourceSet(sourceSets.main) }
+    }
+}
+repositories { mavenCentral() }
+dependencies { }
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
