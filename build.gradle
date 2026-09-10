@@ -24,7 +24,7 @@ repositories { mavenCentral() }
 dependencies { }
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 
-tasks.named('processResources', ProcessResources).configure {
+tasks.named('processResources').configure {
     def props = [
         mod_id: mod_id,
         mod_name: mod_name,
