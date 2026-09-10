@@ -15,7 +15,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.Unbreakable;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.event.ItemAttributeModifierEvent;
 import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
 
@@ -29,15 +28,9 @@ public final class EquipmentModifier {
     private EquipmentModifier() {}
 
     @SubscribeEvent
-    public static void commonSetup(FMLCommonSetupEvent event) {
-        EquipmentConfig.load();
-    }
-
-    @SubscribeEvent
     public static void modifyDefaultComponents(ModifyDefaultComponentsEvent event) {
         for (EquipmentConfig.Rule rule : EquipmentConfig.RULES) {
             if (rule.durability == null && rule.unbreakable == null) continue;
-
             applyComponents(rule, event);
         }
     }
@@ -47,15 +40,18 @@ public final class EquipmentModifier {
         ModifyDefaultComponentsEvent event
     ) {
         if (rule.item != null && !rule.item.isBlank()) {
-            Item item = BuiltInRegistries.ITEM
-                .getOptional(ResourceLocation.parse(rule.item))
-                .orElse(null);
+            ResourceLocation id = ResourceLocation.tryParse(rule.item);
+            if (id == null) return;
 
-            if (item != null) {
-                modifyItemComponents(item, rule, event);
-            }
-        } else if (rule.tag != null && !rule.tag.isBlank()) {
+            Item item = BuiltInRegistries.ITEM.getOptional(id).orElse(null);
+            if (item != null) modifyItemComponents(item, rule, event);
+            return;
+        }
+
+        if (rule.tag != null && !rule.tag.isBlank()) {
             TagKey<Item> tag = itemTag(rule.tag);
+            if (tag == null) return;
+
             BuiltInRegistries.ITEM.getOrCreateTag(tag).forEach(holder ->
                 modifyItemComponents(holder.value(), rule, event));
         }
@@ -68,8 +64,7 @@ public final class EquipmentModifier {
     ) {
         event.modify(item, builder -> {
             if (rule.durability != null) {
-                int durability = Math.max(1, rule.durability);
-                builder.set(DataComponents.MAX_DAMAGE, durability);
+                builder.set(DataComponents.MAX_DAMAGE, Math.max(1, rule.durability));
             }
 
             if (rule.unbreakable != null) {
@@ -96,8 +91,7 @@ public final class EquipmentModifier {
                 rule.attackSpeed - 4.0, EquipmentSlotGroup.MAINHAND);
 
         if (rule.armor != null)
-            replace(event, Attributes.ARMOR, "armor",
-                rule.armor, EquipmentSlotGroup.ANY);
+            replace(event, Attributes.ARMOR, "armor", rule.armor, EquipmentSlotGroup.ANY);
 
         if (rule.armorToughness != null)
             replace(event, Attributes.ARMOR_TOUGHNESS, "armor_toughness",
@@ -123,11 +117,14 @@ public final class EquipmentModifier {
             replace(event, Attributes.ATTACK_KNOCKBACK, "attack_knockback",
                 rule.attackKnockback, EquipmentSlotGroup.MAINHAND);
 
+        if (rule.attributes == null) return;
+
         for (Map.Entry<String, Double> entry : rule.attributes.entrySet()) {
+            ResourceLocation id = ResourceLocation.tryParse(entry.getKey());
+            if (id == null) continue;
+
             Holder.Reference<Attribute> attribute =
-                BuiltInRegistries.ATTRIBUTE
-                    .getHolder(ResourceLocation.parse(entry.getKey()))
-                    .orElse(null);
+                BuiltInRegistries.ATTRIBUTE.getHolder(id).orElse(null);
 
             if (attribute != null) {
                 replace(event, attribute,
@@ -150,24 +147,21 @@ public final class EquipmentModifier {
 
     public static int getEnchantability(ItemStack stack, int vanillaValue) {
         EquipmentConfig.Rule rule = findRule(stack);
-        if (rule == null || rule.enchantability == null)
-            return vanillaValue;
+        if (rule == null || rule.enchantability == null) return vanillaValue;
         return Math.max(0, rule.enchantability);
     }
 
     private static EquipmentConfig.Rule findRule(ItemStack stack) {
         String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
 
-        // Item rules take precedence over tag rules.
         for (EquipmentConfig.Rule candidate : EquipmentConfig.RULES) {
-            if (candidate.item != null && candidate.item.equals(itemId))
-                return candidate;
+            if (candidate.item != null && candidate.item.equals(itemId)) return candidate;
         }
 
         for (EquipmentConfig.Rule candidate : EquipmentConfig.RULES) {
-            if (candidate.tag != null && !candidate.tag.isBlank()
-                && stack.is(itemTag(candidate.tag))) {
-                return candidate;
+            if (candidate.tag != null && !candidate.tag.isBlank()) {
+                TagKey<Item> tag = itemTag(candidate.tag);
+                if (tag != null && stack.is(tag)) return candidate;
             }
         }
 
@@ -175,7 +169,8 @@ public final class EquipmentModifier {
     }
 
     private static TagKey<Item> itemTag(String tagId) {
-        return TagKey.create(Registries.ITEM, ResourceLocation.parse(tagId));
+        ResourceLocation id = ResourceLocation.tryParse(tagId);
+        return id == null ? null : TagKey.create(Registries.ITEM, id);
     }
 
     private static void replace(
@@ -188,10 +183,7 @@ public final class EquipmentModifier {
         event.removeAllModifiersFor(attribute);
 
         AttributeModifier modifier = new AttributeModifier(
-            ResourceLocation.fromNamespaceAndPath(
-                NAMESPACE,
-                sanitize(property)
-            ),
+            ResourceLocation.fromNamespaceAndPath(NAMESPACE, sanitize(property)),
             amount,
             AttributeModifier.Operation.ADD_VALUE
         );
