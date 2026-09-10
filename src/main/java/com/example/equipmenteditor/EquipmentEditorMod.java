@@ -11,5 +11,6 @@ public final class EquipmentEditorMod {
     public EquipmentEditorMod(IEventBus modBus) {
         EquipmentConfig.load();
         NeoForge.EVENT_BUS.addListener(EquipmentModifier::modifyMiningSpeed);
+        NeoForge.EVENT_BUS.addListener(EquipmentModifier::modifyEnchantability);
     }
 }
