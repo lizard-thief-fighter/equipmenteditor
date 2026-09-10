@@ -1,0 +1,25 @@
+{
+  "rules": [
+    {
+      "item": "minecraft:diamond_sword",
+      "durability": 2500,
+      "attackDamage": 10.0,
+      "attackSpeed": 1.8,
+      "attributes": {}
+    },
+    {
+      "item": "minecraft:diamond_pickaxe",
+      "durability": 3000,
+      "miningSpeed": 16.0,
+      "enchantability": 30,
+      "attributes": {}
+    },
+    {
+      "item": "minecraft:diamond_chestplate",
+      "durability": 1000,
+      "armor": 10.0,
+      "armorToughness": 5.0,
+      "attributes": {}
+    }
+  ]
+}
