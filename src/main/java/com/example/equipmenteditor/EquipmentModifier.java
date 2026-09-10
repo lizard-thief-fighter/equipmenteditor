@@ -12,6 +12,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.Unbreakable;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
@@ -35,26 +36,49 @@ public final class EquipmentModifier {
     @SubscribeEvent
     public static void modifyDefaultComponents(ModifyDefaultComponentsEvent event) {
         for (EquipmentConfig.Rule rule : EquipmentConfig.RULES) {
-            if (rule.durability == null) continue;
+            if (rule.durability == null && rule.unbreakable == null) continue;
 
-            int durability = Math.max(1, rule.durability);
-
-            if (rule.item != null && !rule.item.isBlank()) {
-                Item item = BuiltInRegistries.ITEM
-                    .getOptional(ResourceLocation.parse(rule.item))
-                    .orElse(null);
-
-                if (item != null) {
-                    event.modify(item, builder ->
-                        builder.set(DataComponents.MAX_DAMAGE, durability));
-                }
-            } else if (rule.tag != null && !rule.tag.isBlank()) {
-                TagKey<Item> tag = itemTag(rule.tag);
-                BuiltInRegistries.ITEM.getOrCreateTag(tag).forEach(holder ->
-                    event.modify(holder.value(), builder ->
-                        builder.set(DataComponents.MAX_DAMAGE, durability)));
-            }
+            applyComponents(rule, event);
         }
+    }
+
+    private static void applyComponents(
+        EquipmentConfig.Rule rule,
+        ModifyDefaultComponentsEvent event
+    ) {
+        if (rule.item != null && !rule.item.isBlank()) {
+            Item item = BuiltInRegistries.ITEM
+                .getOptional(ResourceLocation.parse(rule.item))
+                .orElse(null);
+
+            if (item != null) {
+                modifyItemComponents(item, rule, event);
+            }
+        } else if (rule.tag != null && !rule.tag.isBlank()) {
+            TagKey<Item> tag = itemTag(rule.tag);
+            BuiltInRegistries.ITEM.getOrCreateTag(tag).forEach(holder ->
+                modifyItemComponents(holder.value(), rule, event));
+        }
+    }
+
+    private static void modifyItemComponents(
+        Item item,
+        EquipmentConfig.Rule rule,
+        ModifyDefaultComponentsEvent event
+    ) {
+        event.modify(item, builder -> {
+            if (rule.durability != null) {
+                int durability = Math.max(1, rule.durability);
+                builder.set(DataComponents.MAX_DAMAGE, durability);
+            }
+
+            if (rule.unbreakable != null) {
+                builder.set(
+                    DataComponents.UNBREAKABLE,
+                    rule.unbreakable ? new Unbreakable(true) : null
+                );
+            }
+        });
     }
 
     @SubscribeEvent
