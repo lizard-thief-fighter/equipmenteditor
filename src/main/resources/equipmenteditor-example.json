@@ -8,8 +8,12 @@
       "attributes": {}
     },
     {
-      "item": "minecraft:diamond_pickaxe",
-      "durability": 3000,
+      "tag": "minecraft:swords",
+      "durability": 1000
+    },
+    {
+      "tag": "minecraft:pickaxes",
+      "durability": 1500,
       "miningSpeed": 16.0,
       "enchantability": 30,
       "attributes": {}
