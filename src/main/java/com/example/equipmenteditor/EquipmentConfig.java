@@ -10,14 +10,14 @@ import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class EquipmentConfig {
     private EquipmentConfig() {}
 
-    public static final Path CONFIG_PATH =
-        FMLPaths.CONFIGDIR.get().resolve("equipmenteditor.json");
-
+    public static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get().resolve("equipmenteditor.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static List<Rule> RULES = new ArrayList<>();
@@ -29,12 +29,9 @@ public final class EquipmentConfig {
                 save();
                 return;
             }
-
             try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
                 ConfigFile config = GSON.fromJson(reader, ConfigFile.class);
-                RULES = config == null || config.rules == null
-                    ? new ArrayList<>()
-                    : config.rules;
+                RULES = config == null || config.rules == null ? new ArrayList<>() : config.rules;
             }
         } catch (Exception e) {
             System.err.println("[Equipment Editor] Could not load " + CONFIG_PATH);
@@ -57,7 +54,6 @@ public final class EquipmentConfig {
 
     private static List<Rule> defaultRules() {
         List<Rule> rules = new ArrayList<>();
-
         Rule sword = new Rule("minecraft:diamond_sword");
         sword.durability = 2500;
         sword.attackDamage = 10.0;
@@ -69,23 +65,17 @@ public final class EquipmentConfig {
         chestplate.armor = 10.0;
         chestplate.armorToughness = 5.0;
         rules.add(chestplate);
-
         return rules;
     }
 
     public static final class ConfigFile {
         public List<Rule> rules;
-
-        public ConfigFile(List<Rule> rules) {
-            this.rules = rules;
-        }
+        public ConfigFile(List<Rule> rules) { this.rules = rules; }
     }
 
     public static final class Rule {
-        // Exactly one of these is normally used. If both are present, item takes precedence.
         public String item;
         public String tag;
-
         public Integer durability;
         public Boolean unbreakable;
         public Double attackDamage;
@@ -101,13 +91,9 @@ public final class EquipmentConfig {
         public Double miningSpeedMultiplier;
         public Integer enchantability;
         public Integer durabilityMultiplier;
-        public java.util.Map<String, Double> attributes = new java.util.HashMap<>();
+        public Map<String, Double> attributes = new HashMap<>();
 
-        public Rule(String item) {
-            this.item = item;
-        }
-
-        public Rule() {
-        }
+        public Rule(String item) { this.item = item; }
+        public Rule() {}
     }
 }
