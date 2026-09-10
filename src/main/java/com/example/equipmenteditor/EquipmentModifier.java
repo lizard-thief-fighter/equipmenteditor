@@ -12,13 +12,14 @@ import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.component.Tool;
 import net.minecraft.world.item.component.Unbreakable;
-import net.minecraft.world.item.enchantment.Enchantable;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.ItemAttributeModifierEvent;
 import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
+import net.neoforged.neoforge.event.enchanting.EnchantmentLevelSetEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.util.ArrayList;
@@ -94,12 +95,8 @@ public final class EquipmentModifier {
                     );
                 }
                 if (rule.rarity != null) {
-                    Item.Rarity rarity = parseRarity(rule.rarity);
+                    Rarity rarity = parseRarity(rule.rarity);
                     if (rarity != null) builder.set(DataComponents.RARITY, rarity);
-                }
-                if (rule.enchantability != null) {
-                    builder.set(DataComponents.ENCHANTABLE,
-                        new Enchantable(Math.max(0, rule.enchantability)));
                 }
                 if (rule.miningSpeed != null) {
                     Tool tool = stack.get(DataComponents.TOOL);
@@ -170,6 +167,18 @@ public final class EquipmentModifier {
             event.getNewSpeed() * Math.max(0.0f, rule.miningSpeedMultiplier.floatValue())));
     }
 
+    public static void modifyEnchantability(EnchantmentLevelSetEvent event) {
+        EquipmentConfig.Rule rule = resolveRule(event.getItem());
+        if (rule == null || rule.enchantability == null) return;
+
+        int vanillaValue = event.getItem().getItem().getEnchantmentValue();
+        int configuredValue = Math.max(0, rule.enchantability);
+        if (vanillaValue <= 0) return;
+
+        int adjusted = Math.round(event.getEnchantLevel() * (configuredValue / (float) vanillaValue));
+        event.setEnchantLevel(Math.max(0, Math.min(30, adjusted)));
+    }
+
     private static EquipmentConfig.Rule resolveRule(ItemStack stack) {
         if (stack.isEmpty()) return null;
 
@@ -218,12 +227,12 @@ public final class EquipmentModifier {
         return id == null ? null : TagKey.create(Registries.ITEM, id);
     }
 
-    private static Item.Rarity parseRarity(String value) {
+    private static Rarity parseRarity(String value) {
         return switch (value.toLowerCase(Locale.ROOT)) {
-            case "common" -> Item.Rarity.COMMON;
-            case "uncommon" -> Item.Rarity.UNCOMMON;
-            case "rare" -> Item.Rarity.RARE;
-            case "epic" -> Item.Rarity.EPIC;
+            case "common" -> Rarity.COMMON;
+            case "uncommon" -> Rarity.UNCOMMON;
+            case "rare" -> Rarity.RARE;
+            case "epic" -> Rarity.EPIC;
             default -> null;
         };
     }
