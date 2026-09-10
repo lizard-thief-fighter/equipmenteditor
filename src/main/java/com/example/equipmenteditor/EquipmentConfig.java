@@ -82,7 +82,10 @@ public final class EquipmentConfig {
     }
 
     public static final class Rule {
+        // Exactly one of these is normally used. If both are present, item takes precedence.
         public String item;
+        public String tag;
+
         public Integer durability;
         public Double attackDamage;
         public Double attackSpeed;
@@ -101,6 +104,9 @@ public final class EquipmentConfig {
 
         public Rule(String item) {
             this.item = item;
+        }
+
+        public Rule() {
         }
     }
 }
