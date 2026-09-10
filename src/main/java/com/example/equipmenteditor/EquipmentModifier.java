@@ -2,8 +2,10 @@ package com.example.equipmenteditor;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
@@ -33,16 +35,24 @@ public final class EquipmentModifier {
     @SubscribeEvent
     public static void modifyDefaultComponents(ModifyDefaultComponentsEvent event) {
         for (EquipmentConfig.Rule rule : EquipmentConfig.RULES) {
-            Item item = BuiltInRegistries.ITEM
-                .getOptional(ResourceLocation.parse(rule.item))
-                .orElse(null);
+            if (rule.durability == null) continue;
 
-            if (item == null) continue;
+            int durability = Math.max(1, rule.durability);
 
-            if (rule.durability != null) {
-                int durability = Math.max(1, rule.durability);
-                event.modify(item, builder ->
-                    builder.set(DataComponents.MAX_DAMAGE, durability));
+            if (rule.item != null && !rule.item.isBlank()) {
+                Item item = BuiltInRegistries.ITEM
+                    .getOptional(ResourceLocation.parse(rule.item))
+                    .orElse(null);
+
+                if (item != null) {
+                    event.modify(item, builder ->
+                        builder.set(DataComponents.MAX_DAMAGE, durability));
+                }
+            } else if (rule.tag != null && !rule.tag.isBlank()) {
+                TagKey<Item> tag = itemTag(rule.tag);
+                BuiltInRegistries.ITEM.getOrCreateTag(tag).forEach(holder ->
+                    event.modify(holder.value(), builder ->
+                        builder.set(DataComponents.MAX_DAMAGE, durability)));
             }
         }
     }
@@ -50,9 +60,7 @@ public final class EquipmentModifier {
     @SubscribeEvent
     public static void modifyAttributes(ItemAttributeModifierEvent event) {
         ItemStack stack = event.getItemStack();
-        String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-
-        EquipmentConfig.Rule rule = findRule(itemId);
+        EquipmentConfig.Rule rule = findRule(stack);
         if (rule == null) return;
 
         if (rule.attackDamage != null)
@@ -107,34 +115,43 @@ public final class EquipmentModifier {
     }
 
     public static Double getMiningSpeedOverride(ItemStack stack) {
-        EquipmentConfig.Rule rule = findRule(
-            BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()
-        );
+        EquipmentConfig.Rule rule = findRule(stack);
         return rule == null ? null : rule.miningSpeed;
     }
 
     public static Double getMiningSpeedMultiplier(ItemStack stack) {
-        EquipmentConfig.Rule rule = findRule(
-            BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()
-        );
+        EquipmentConfig.Rule rule = findRule(stack);
         return rule == null ? null : rule.miningSpeedMultiplier;
     }
 
     public static int getEnchantability(ItemStack stack, int vanillaValue) {
-        EquipmentConfig.Rule rule = findRule(
-            BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()
-        );
+        EquipmentConfig.Rule rule = findRule(stack);
         if (rule == null || rule.enchantability == null)
             return vanillaValue;
         return Math.max(0, rule.enchantability);
     }
 
-    private static EquipmentConfig.Rule findRule(String itemId) {
+    private static EquipmentConfig.Rule findRule(ItemStack stack) {
+        String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+
+        // Item rules take precedence over tag rules.
         for (EquipmentConfig.Rule candidate : EquipmentConfig.RULES) {
-            if (candidate.item.equals(itemId))
+            if (candidate.item != null && candidate.item.equals(itemId))
                 return candidate;
         }
+
+        for (EquipmentConfig.Rule candidate : EquipmentConfig.RULES) {
+            if (candidate.tag != null && !candidate.tag.isBlank()
+                && stack.is(itemTag(candidate.tag))) {
+                return candidate;
+            }
+        }
+
         return null;
+    }
+
+    private static TagKey<Item> itemTag(String tagId) {
+        return TagKey.create(Registries.ITEM, ResourceLocation.parse(tagId));
     }
 
     private static void replace(
