@@ -2,6 +2,7 @@ package com.example.equipmenteditor;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.neoforge.common.NeoForge;
 
 @Mod(EquipmentEditorMod.MOD_ID)
 public final class EquipmentEditorMod {
@@ -9,5 +10,6 @@ public final class EquipmentEditorMod {
 
     public EquipmentEditorMod(IEventBus modBus) {
         EquipmentConfig.load();
+        NeoForge.EVENT_BUS.addListener(EquipmentModifier::modifyMiningSpeed);
     }
 }
