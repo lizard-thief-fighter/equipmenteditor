@@ -22,7 +22,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import java.util.Locale;
 import java.util.Map;
 
-@EventBusSubscriber(modid = EquipmentEditorMod.MOD_ID)
+@EventBusSubscriber(modid = EquipmentEditorMod.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
 public final class EquipmentModifier {
     private static final String NAMESPACE = EquipmentEditorMod.MOD_ID;
     private static final String VANILLA_NAMESPACE = "minecraft";
@@ -57,34 +57,26 @@ public final class EquipmentModifier {
         if (rule.attackDamage != null)
             replace(event, Attributes.ATTACK_DAMAGE, "attack_damage",
                 rule.attackDamage - 1.0, EquipmentSlotGroup.MAINHAND);
-
         if (rule.attackSpeed != null)
             replace(event, Attributes.ATTACK_SPEED, "attack_speed",
                 rule.attackSpeed - 4.0, EquipmentSlotGroup.MAINHAND);
-
         if (rule.armor != null)
             replace(event, Attributes.ARMOR, "armor", rule.armor, EquipmentSlotGroup.ANY);
-
         if (rule.armorToughness != null)
             replace(event, Attributes.ARMOR_TOUGHNESS, "armor_toughness",
                 rule.armorToughness, EquipmentSlotGroup.ANY);
-
         if (rule.knockbackResistance != null)
             replace(event, Attributes.KNOCKBACK_RESISTANCE, "knockback_resistance",
                 rule.knockbackResistance, EquipmentSlotGroup.ANY);
-
         if (rule.entityInteractionRange != null)
             replace(event, Attributes.ENTITY_INTERACTION_RANGE, "entity_interaction_range",
                 rule.entityInteractionRange, EquipmentSlotGroup.ANY);
-
         if (rule.blockInteractionRange != null)
             replace(event, Attributes.BLOCK_INTERACTION_RANGE, "block_interaction_range",
                 rule.blockInteractionRange, EquipmentSlotGroup.ANY);
-
         if (rule.movementSpeed != null)
             replace(event, Attributes.MOVEMENT_SPEED, "movement_speed",
                 rule.movementSpeed, EquipmentSlotGroup.ANY);
-
         if (rule.attackKnockback != null)
             replace(event, Attributes.ATTACK_KNOCKBACK, "attack_knockback",
                 rule.attackKnockback, EquipmentSlotGroup.MAINHAND);
@@ -93,20 +85,16 @@ public final class EquipmentModifier {
             for (Map.Entry<String, Double> entry : rule.attributes.entrySet()) {
                 ResourceLocation id = ResourceLocation.tryParse(entry.getKey());
                 if (id == null) continue;
-
                 Holder.Reference<Attribute> attribute =
                     BuiltInRegistries.ATTRIBUTE.getHolder(id).orElse(null);
                 if (attribute != null) {
-                    replace(event, attribute,
-                        "attribute_" + entry.getKey(),
-                        entry.getValue(),
-                        EquipmentSlotGroup.ANY);
+                    replace(event, attribute, "attribute_" + entry.getKey(),
+                        entry.getValue(), EquipmentSlotGroup.ANY);
                 }
             }
         }
     }
 
-    @SubscribeEvent
     public static void modifyMiningSpeed(PlayerEvent.BreakSpeed event) {
         ItemStack stack = event.getEntity().getMainHandItem();
         EquipmentConfig.Rule rule = resolveRule(stack);
@@ -137,11 +125,6 @@ public final class EquipmentModifier {
         return Math.max(0, rule.enchantability);
     }
 
-    /**
-     * Resolves all matching tag rules, then overlays the exact item rule last.
-     * This lets independent tags contribute different properties while keeping
-     * an exact item rule authoritative for any property it specifies.
-     */
     private static EquipmentConfig.Rule resolveRule(ItemStack stack) {
         String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
         EquipmentConfig.Rule resolved = null;
@@ -162,7 +145,6 @@ public final class EquipmentModifier {
                 break;
             }
         }
-
         return resolved;
     }
 
@@ -190,32 +172,17 @@ public final class EquipmentModifier {
         return id == null ? null : TagKey.create(Registries.ITEM, id);
     }
 
-    private static void replace(
-        ItemAttributeModifierEvent event,
-        Holder<Attribute> attribute,
-        String property,
-        double amount,
-        EquipmentSlotGroup slot
-    ) {
+    private static void replace(ItemAttributeModifierEvent event, Holder<Attribute> attribute,
+                                String property, double amount, EquipmentSlotGroup slot) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(NAMESPACE, sanitize(property));
-
-        // Preserve modifiers supplied by other mods. Vanilla modifiers are the
-        // values an Equipment Editor property is intended to replace; our own
-        // modifier is replaced on subsequent evaluations.
-        event.removeIf(entry ->
-            entry.attribute().equals(attribute)
-                && (entry.modifier().id().getNamespace().equals(VANILLA_NAMESPACE)
-                    || entry.modifier().id().equals(id)));
-
-        event.addModifier(
-            attribute,
-            new AttributeModifier(id, amount, AttributeModifier.Operation.ADD_VALUE),
-            slot
-        );
+        event.removeIf(entry -> entry.attribute().equals(attribute)
+            && (entry.modifier().id().getNamespace().equals(VANILLA_NAMESPACE)
+                || entry.modifier().id().equals(id)));
+        event.addModifier(attribute,
+            new AttributeModifier(id, amount, AttributeModifier.Operation.ADD_VALUE), slot);
     }
 
     private static String sanitize(String value) {
-        return value.toLowerCase(Locale.ROOT)
-            .replaceAll("[^a-z0-9_./-]", "_");
+        return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_./-]", "_");
     }
 }
