@@ -27,17 +27,18 @@ public final class EquipmentConfig {
             if (!Files.exists(CONFIG_PATH)) {
                 RULES = defaultRules();
                 save();
-                return;
-            }
-            try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
-                ConfigFile config = GSON.fromJson(reader, ConfigFile.class);
-                RULES = config == null || config.rules == null ? new ArrayList<>() : config.rules;
+            } else {
+                try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
+                    ConfigFile config = GSON.fromJson(reader, ConfigFile.class);
+                    RULES = config == null || config.rules == null ? new ArrayList<>() : config.rules;
+                }
             }
         } catch (Exception e) {
             System.err.println("[Equipment Editor] Could not load " + CONFIG_PATH);
             e.printStackTrace();
             RULES = new ArrayList<>();
         }
+        EquipmentModifier.rebuildRuleIndex();
     }
 
     public static void save() {
@@ -78,6 +79,9 @@ public final class EquipmentConfig {
         public String tag;
         public Integer durability;
         public Boolean unbreakable;
+        public Integer maxStackSize;
+        public Boolean fireResistant;
+        public String rarity;
         public Double attackDamage;
         public Double attackSpeed;
         public Double armor;
