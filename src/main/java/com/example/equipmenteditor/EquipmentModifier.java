@@ -2,15 +2,12 @@ package com.example.equipmenteditor;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.EquipmentSlotGroup;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.component.Tool;
@@ -21,7 +18,6 @@ import net.neoforged.neoforge.event.ItemAttributeModifierEvent;
 import net.neoforged.neoforge.event.ModifyDefaultComponentsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -33,33 +29,23 @@ public final class EquipmentModifier {
     private static final String VANILLA_NAMESPACE = "minecraft";
 
     private static Map<String, EquipmentConfig.Rule> itemRules = Map.of();
-    private static Map<TagKey<Item>, List<IndexedRule>> tagRules = Map.of();
 
     private EquipmentModifier() {}
 
     static void rebuildRuleIndex() {
         Map<String, EquipmentConfig.Rule> items = new HashMap<>();
-        Map<TagKey<Item>, List<IndexedRule>> tags = new HashMap<>();
 
-        for (int index = 0; index < EquipmentConfig.RULES.size(); index++) {
-            EquipmentConfig.Rule rule = EquipmentConfig.RULES.get(index);
-            if (rule == null) continue;
+        for (EquipmentConfig.Rule rule : EquipmentConfig.RULES) {
+            if (rule == null || rule.items == null) continue;
 
-            if (rule.item != null && !rule.item.isBlank()) {
-                items.putIfAbsent(rule.item, rule);
-            }
-
-            if (rule.tag != null && !rule.tag.isBlank()) {
-                TagKey<Item> tag = itemTag(rule.tag);
-                if (tag != null) {
-                    tags.computeIfAbsent(tag, ignored -> new ArrayList<>())
-                        .add(new IndexedRule(index, rule));
+            for (String item : rule.items) {
+                if (item != null && !item.isBlank()) {
+                    items.merge(item, rule, EquipmentModifier::mergeRules);
                 }
             }
         }
 
         itemRules = Map.copyOf(items);
-        tagRules = Map.copyOf(tags);
     }
 
     @SubscribeEvent
@@ -106,7 +92,6 @@ public final class EquipmentModifier {
         });
     }
 
-    @SubscribeEvent
     public static void modifyAttributes(ItemAttributeModifierEvent event) {
         EquipmentConfig.Rule rule = resolveRule(event.getItemStack());
         if (rule == null) return;
@@ -162,23 +147,16 @@ public final class EquipmentModifier {
 
     private static EquipmentConfig.Rule resolveRule(ItemStack stack) {
         if (stack.isEmpty()) return null;
-
         String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-        EquipmentConfig.Rule exact = itemRules.get(itemId);
-        List<IndexedRule> matches = new ArrayList<>();
+        return itemRules.get(itemId);
+    }
 
-        stack.getTags().forEach(tag -> {
-            List<IndexedRule> rules = tagRules.get(tag);
-            if (rules != null) matches.addAll(rules);
-        });
-
-        if (matches.isEmpty()) return exact;
-        matches.sort((left, right) -> Integer.compare(left.index(), right.index()));
-
-        EquipmentConfig.Rule resolved = new EquipmentConfig.Rule();
-        for (IndexedRule match : matches) merge(resolved, match.rule());
-        if (exact != null) merge(resolved, exact);
-        return resolved;
+    private static EquipmentConfig.Rule mergeRules(EquipmentConfig.Rule first,
+                                                    EquipmentConfig.Rule second) {
+        EquipmentConfig.Rule merged = new EquipmentConfig.Rule();
+        merge(merged, first);
+        merge(merged, second);
+        return merged;
     }
 
     private static void merge(EquipmentConfig.Rule target, EquipmentConfig.Rule source) {
@@ -200,11 +178,6 @@ public final class EquipmentModifier {
         if (source.miningSpeedMultiplier != null) target.miningSpeedMultiplier = source.miningSpeedMultiplier;
         if (source.durabilityMultiplier != null) target.durabilityMultiplier = source.durabilityMultiplier;
         if (source.attributes != null) target.attributes.putAll(source.attributes);
-    }
-
-    private static TagKey<Item> itemTag(String tagId) {
-        ResourceLocation id = ResourceLocation.tryParse(tagId);
-        return id == null ? null : TagKey.create(Registries.ITEM, id);
     }
 
     private static Rarity parseRarity(String value) {
@@ -230,6 +203,4 @@ public final class EquipmentModifier {
     private static String sanitize(String value) {
         return value.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_./-]", "_");
     }
-
-    private record IndexedRule(int index, EquipmentConfig.Rule rule) {}
 }
