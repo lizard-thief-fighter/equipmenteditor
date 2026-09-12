@@ -55,13 +55,13 @@ public final class EquipmentConfig {
 
     private static List<Rule> defaultRules() {
         List<Rule> rules = new ArrayList<>();
-        Rule sword = new Rule("minecraft:diamond_sword");
+        Rule sword = new Rule(List.of("minecraft:diamond_sword"));
         sword.durability = 2500;
         sword.attackDamage = 10.0;
         sword.attackSpeed = 1.8;
         rules.add(sword);
 
-        Rule chestplate = new Rule("minecraft:diamond_chestplate");
+        Rule chestplate = new Rule(List.of("minecraft:diamond_chestplate"));
         chestplate.durability = 1000;
         chestplate.armor = 10.0;
         chestplate.armorToughness = 5.0;
@@ -75,8 +75,7 @@ public final class EquipmentConfig {
     }
 
     public static final class Rule {
-        public String item;
-        public String tag;
+        public List<String> items = new ArrayList<>();
         public Integer durability;
         public Boolean unbreakable;
         public Integer maxStackSize;
@@ -96,7 +95,7 @@ public final class EquipmentConfig {
         public Integer durabilityMultiplier;
         public Map<String, Double> attributes = new HashMap<>();
 
-        public Rule(String item) { this.item = item; }
+        public Rule(List<String> items) { this.items = items; }
         public Rule() {}
     }
 }
