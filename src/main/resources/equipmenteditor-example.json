@@ -1,29 +1,19 @@
-{
-  "rules": [
-    {
-      "item": "minecraft:diamond_sword",
-      "durability": 2500,
-      "attackDamage": 10.0,
-      "attackSpeed": 1.8,
-      "attributes": {}
-    },
-    {
-      "tag": "minecraft:swords",
-      "durability": 1000
-    },
-    {
-      "tag": "minecraft:pickaxes",
-      "durability": 1500,
-      "miningSpeed": 16.0,
-      "enchantability": 30,
-      "attributes": {}
-    },
-    {
-      "item": "minecraft:diamond_chestplate",
-      "durability": 1000,
-      "armor": 10.0,
-      "armorToughness": 5.0,
-      "attributes": {}
-    }
-  ]
-}
+[
+  {
+    "items": ["minecraft:diamond_sword"],
+    "durability": 2500,
+    "attackDamage": 10.0,
+    "attackSpeed": 1.8
+  },
+  {
+    "items": ["minecraft:iron_pickaxe", "minecraft:diamond_pickaxe"],
+    "durability": 1500,
+    "miningSpeed": 16.0
+  },
+  {
+    "items": ["minecraft:diamond_chestplate"],
+    "durability": 1000,
+    "armor": 10.0,
+    "armorToughness": 5.0
+  }
+]

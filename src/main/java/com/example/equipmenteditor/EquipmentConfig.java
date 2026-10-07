@@ -2,6 +2,7 @@ package com.example.equipmenteditor;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonParseException;
 import net.neoforged.fml.loading.FMLPaths;
 
 import java.io.IOException;
@@ -9,47 +10,64 @@ import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public final class EquipmentConfig {
     private EquipmentConfig() {}
 
-    public static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get().resolve("equipmenteditor.json");
+    public static final Path CONFIG_DIRECTORY = FMLPaths.CONFIGDIR.get().resolve("equipmenteditor");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static List<Rule> RULES = new ArrayList<>();
 
     public static void load() {
+        List<Rule> rules = new ArrayList<>();
         try {
-            if (!Files.exists(CONFIG_PATH)) {
-                RULES = defaultRules();
-                save();
-            } else {
-                try (Reader reader = Files.newBufferedReader(CONFIG_PATH)) {
-                    ConfigFile config = GSON.fromJson(reader, ConfigFile.class);
-                    RULES = config == null || config.rules == null ? new ArrayList<>() : config.rules;
+            Files.createDirectories(CONFIG_DIRECTORY);
+            List<Path> files = discoverRuleFiles();
+            if (files.isEmpty()) {
+                Path defaults = CONFIG_DIRECTORY.resolve("default.json");
+                try (Writer writer = Files.newBufferedWriter(defaults, StandardOpenOption.CREATE_NEW)) {
+                    GSON.toJson(defaultRules(), writer);
+                }
+                files = List.of(defaults);
+            }
+
+            for (Path file : files) {
+                try (Reader reader = Files.newBufferedReader(file)) {
+                    Rule[] fileRules = GSON.fromJson(reader, Rule[].class);
+                    if (fileRules == null) {
+                        throw new JsonParseException("Expected a JSON array of rule objects");
+                    }
+                    rules.addAll(Arrays.asList(fileRules));
+                } catch (IOException | JsonParseException e) {
+                    System.err.println("[Equipment Editor] Could not load rules from " + file);
+                    e.printStackTrace();
                 }
             }
         } catch (Exception e) {
-            System.err.println("[Equipment Editor] Could not load " + CONFIG_PATH);
+            System.err.println("[Equipment Editor] Could not load rule directory " + CONFIG_DIRECTORY);
             e.printStackTrace();
-            RULES = new ArrayList<>();
         }
+        RULES = rules;
         EquipmentModifier.rebuildRuleIndex();
     }
 
-    public static void save() {
-        try {
-            Files.createDirectories(CONFIG_PATH.getParent());
-            try (Writer writer = Files.newBufferedWriter(CONFIG_PATH)) {
-                GSON.toJson(new ConfigFile(RULES), writer);
-            }
-        } catch (IOException e) {
-            System.err.println("[Equipment Editor] Could not save " + CONFIG_PATH);
-            e.printStackTrace();
+    private static List<Path> discoverRuleFiles() throws IOException {
+        try (Stream<Path> paths = Files.walk(CONFIG_DIRECTORY)) {
+            return paths.filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().endsWith(".json"))
+                // Normalize separators so ordering is the same on Windows and Unix.
+                .sorted(Comparator.comparing(path -> CONFIG_DIRECTORY.relativize(path)
+                    .toString().replace('\\', '/')))
+                .toList();
         }
     }
 
@@ -67,11 +85,6 @@ public final class EquipmentConfig {
         chestplate.armorToughness = 5.0;
         rules.add(chestplate);
         return rules;
-    }
-
-    public static final class ConfigFile {
-        public List<Rule> rules;
-        public ConfigFile(List<Rule> rules) { this.rules = rules; }
     }
 
     public static final class Rule {
