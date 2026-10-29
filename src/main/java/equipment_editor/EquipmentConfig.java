@@ -1,4 +1,4 @@
-package com.example.equipmenteditor;
+package equipment_editor;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

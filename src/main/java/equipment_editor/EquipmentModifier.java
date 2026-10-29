@@ -1,4 +1,4 @@
-package com.example.equipmenteditor;
+package equipment_editor;
 
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponentMap;

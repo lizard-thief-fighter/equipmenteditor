@@ -1,4 +1,4 @@
-package com.example.equipmenteditor;
+package equipment_editor;
 
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
