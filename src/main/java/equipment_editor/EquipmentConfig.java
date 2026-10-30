@@ -30,7 +30,7 @@ public final class EquipmentConfig {
 
     static final Logger LOGGER = LogUtils.getLogger();
 
-    public static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get().resolve("equipmenteditor.json");
+    public static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get().resolve("equipment_editor.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Set<String> RULE_KEYS = Arrays.stream(Rule.class.getFields())
         .filter(field -> !Modifier.isStatic(field.getModifiers()))

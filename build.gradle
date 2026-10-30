@@ -17,7 +17,7 @@ neoForge {
         data { clientData() }
     }
     mods {
-        equipmenteditor { sourceSet(sourceSets.main) }
+        equipment_editor { sourceSet(sourceSets.main) }
     }
 }
 repositories { mavenCentral() }
